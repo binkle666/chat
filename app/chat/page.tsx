@@ -3,8 +3,14 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { getCurrentUser, logout } from '@/lib/auth';
-import { Message, ChatUser, getSocket, getSocketSync, disconnectSocket } from '@/lib/socket';
-import { getSocketConfig } from '@/lib/config';
+import {
+  Message,
+  ChatUser,
+  getSocket,
+  getSocketSync,
+  disconnectSocket,
+} from '@/lib/socket';
+import { getSocketConfig, config } from '@/lib/config';
 import { Send, LogOut, Users, AlertCircle } from 'lucide-react';
 
 export default function ChatPage() {
@@ -37,7 +43,7 @@ export default function ChatPage() {
         console.log('🔧 初始化 Socket.IO 连接...', {
           url: socketConfig.url,
           options: socketConfig.options,
-          useCustomServer: socketConfig.options.path ? false : true,
+          useCustomServer: config.useCustomServer,
           currentOrigin:
             typeof window !== 'undefined' ? window.location.origin : 'N/A',
         });
