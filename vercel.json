@@ -9,5 +9,11 @@
   },
   "env": {
     "NEXT_PUBLIC_USE_CUSTOM_SERVER": "false"
-  }
+  },
+  "build": {
+    "env": {
+      "NPM_FLAGS": "--legacy-peer-deps"
+    }
+  },
+  "installCommand": "npm ci --legacy-peer-deps"
 }
