@@ -7,16 +7,19 @@ export const config = {
   socketUrl: (() => {
     // 优先使用环境变量
     if (process.env.NEXT_PUBLIC_SOCKET_URL) {
-      console.log('🔧 使用环境变量 SOCKET_URL:', process.env.NEXT_PUBLIC_SOCKET_URL);
+      console.log(
+        '🔧 使用环境变量 SOCKET_URL:',
+        process.env.NEXT_PUBLIC_SOCKET_URL,
+      );
       return process.env.NEXT_PUBLIC_SOCKET_URL;
     }
-    
+
     // 否则使用当前页面的 origin
     if (typeof window !== 'undefined') {
       console.log('🔧 使用浏览器 origin:', window.location.origin);
       return window.location.origin;
     }
-    
+
     // 最后的后备选项
     console.log('🔧 使用默认 localhost');
     return 'http://localhost:3000';
@@ -61,7 +64,7 @@ export function getSocketConfig() {
     return {
       url: config.socketUrl,
       options: {
-        path: config.socketPath,
+        // 不设置 path，使用默认的 /socket.io/，让 vercel.json 重写规则处理
         transports: ['polling'], // Vercel 只支持 polling
         autoConnect: true,
         forceNew: true,

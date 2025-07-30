@@ -47,7 +47,7 @@ export default function handler(
 
   try {
     const io = new Server(res.socket.server, {
-      path: '/api/socket',
+      // 不设置自定义 path，使用默认配置
       addTrailingSlash: false,
       cors: {
         origin: [
@@ -182,21 +182,17 @@ export default function handler(
       });
     });
 
-    res
-      .status(200)
-      .json({
-        success: true,
-        message: 'Socket.IO server initialized successfully',
-      });
+    res.status(200).json({
+      success: true,
+      message: 'Socket.IO server initialized successfully',
+    });
   } catch (error) {
     console.error('Socket.IO 初始化失败:', error);
-    res
-      .status(500)
-      .json({
-        success: false,
-        error: 'Failed to initialize Socket.IO server',
-        details: error,
-      });
+    res.status(500).json({
+      success: false,
+      error: 'Failed to initialize Socket.IO server',
+      details: error,
+    });
   }
 }
 
