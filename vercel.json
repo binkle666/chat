@@ -12,8 +12,8 @@
   },
   "build": {
     "env": {
-      "NPM_FLAGS": "--legacy-peer-deps"
+      "NPM_FLAGS": ""
     }
   },
-  "installCommand": "npm ci --legacy-peer-deps"
+  "installCommand": "npm ci"
 }
