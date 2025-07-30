@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { getCurrentUser, logout } from '@/lib/auth';
-import { Message, ChatUser, getSocket, disconnectSocket } from '@/lib/socket';
+import { Message, ChatUser, getSocket, getSocketSync, disconnectSocket } from '@/lib/socket';
 import { getSocketConfig } from '@/lib/config';
 import { Send, LogOut, Users, AlertCircle } from 'lucide-react';
 
@@ -28,94 +28,106 @@ export default function ChatPage() {
     // 确保先清理之前的连接
     disconnectSocket();
 
-    // 初始化 Socket.IO
-    const socket = getSocket();
+    // 异步初始化 Socket.IO
+    const initializeSocket = async () => {
+      try {
+        const socket = await getSocket();
 
-    const socketConfig = getSocketConfig();
-    console.log('🔧 初始化 Socket.IO 连接...', {
-      url: socketConfig.url,
-      options: socketConfig.options,
-      useCustomServer: socketConfig.options.path ? false : true,
-      currentOrigin:
-        typeof window !== 'undefined' ? window.location.origin : 'N/A',
-    });
+        const socketConfig = getSocketConfig();
+        console.log('🔧 初始化 Socket.IO 连接...', {
+          url: socketConfig.url,
+          options: socketConfig.options,
+          useCustomServer: socketConfig.options.path ? false : true,
+          currentOrigin:
+            typeof window !== 'undefined' ? window.location.origin : 'N/A',
+        });
 
-    socket.on('connect', () => {
-      console.log('Socket.IO 连接成功:', socket.id);
-      setIsConnected(true);
-      setError('');
-      // 加入聊天室
-      socket.emit('join-chat', currentUser);
-    });
+        socket.on('connect', () => {
+          console.log('Socket.IO 连接成功:', socket.id);
+          setIsConnected(true);
+          setError('');
+          // 加入聊天室
+          socket.emit('join-chat', currentUser);
+        });
 
-    socket.on('disconnect', () => {
-      console.log('Socket.IO 连接断开');
-      setIsConnected(false);
-    });
+        socket.on('disconnect', () => {
+          console.log('Socket.IO 连接断开');
+          setIsConnected(false);
+        });
 
-    socket.on('connect_error', (error: any) => {
-      console.error('Socket.IO 连接错误:', error);
-      const errorMessage = error?.message || error?.type || '连接错误';
-      const errorType = error?.type || 'unknown';
-      const errorDescription = error?.description || 'none';
+        socket.on('connect_error', (error: any) => {
+          console.error('Socket.IO 连接错误:', error);
+          const errorMessage = error?.message || error?.type || '连接错误';
+          const errorType = error?.type || 'unknown';
+          const errorDescription = error?.description || 'none';
 
-      console.error('错误类型:', errorType);
-      console.error('错误描述:', errorDescription);
-      setError(`连接失败: ${errorMessage}`);
-    });
+          console.error('错误类型:', errorType);
+          console.error('错误描述:', errorDescription);
+          setError(`连接失败: ${errorMessage}`);
+        });
 
-    socket.on('room-full', (data) => {
-      setError(data.message);
-    });
+        socket.on('room-full', (data) => {
+          setError(data.message);
+        });
 
-    socket.on('users-updated', (users: ChatUser[]) => {
-      console.log('用户列表更新:', users);
-      setConnectedUsers(users);
-    });
+        socket.on('users-updated', (users: ChatUser[]) => {
+          console.log('用户列表更新:', users);
+          setConnectedUsers(users);
+        });
 
-    socket.on('message-history', (history: Message[]) => {
-      setMessages(
-        history.map((msg) => ({
-          ...msg,
-          timestamp: new Date(msg.timestamp),
-        })),
-      );
-    });
+        socket.on('message-history', (history: Message[]) => {
+          setMessages(
+            history.map((msg) => ({
+              ...msg,
+              timestamp: new Date(msg.timestamp),
+            })),
+          );
+        });
 
-    socket.on('new-message', (message: Message) => {
-      console.log('接收到新消息:', message);
-      setMessages((prev) => {
-        const newMessages = [
-          ...prev,
-          {
-            ...message,
-            timestamp: new Date(message.timestamp),
-          },
-        ];
-        console.log('更新后的消息列表:', newMessages);
-        return newMessages;
-      });
-    });
+        socket.on('new-message', (message: Message) => {
+          console.log('接收到新消息:', message);
+          setMessages((prev) => {
+            const newMessages = [
+              ...prev,
+              {
+                ...message,
+                timestamp: new Date(message.timestamp),
+              },
+            ];
+            console.log('更新后的消息列表:', newMessages);
+            return newMessages;
+          });
+        });
 
-    socket.on('user-joined', (data) => {
-      // 可以显示系统消息
-    });
+        socket.on('user-joined', (data) => {
+          // 可以显示系统消息
+        });
 
-    socket.on('user-left', (data) => {
-      // 可以显示系统消息
-    });
+        socket.on('user-left', (data) => {
+          // 可以显示系统消息
+        });
+      } catch (error) {
+        console.error('初始化 Socket 失败:', error);
+        setError('连接初始化失败');
+      }
+    };
+
+    initializeSocket();
 
     return () => {
       // 清理所有事件监听器
-      socket.off('connect');
-      socket.off('disconnect');
-      socket.off('connect_error');
-      socket.off('room-full');
-      socket.off('users-updated');
-      socket.off('message-history');
-      socket.off('new-message');
-      socket.off('user-joined');
-      socket.off('user-left');
+      const socket = getSocketSync();
+      if (socket) {
+        socket.off('connect');
+        socket.off('disconnect');
+        socket.off('connect_error');
+        socket.off('room-full');
+        socket.off('users-updated');
+        socket.off('message-history');
+        socket.off('new-message');
+        socket.off('user-joined');
+        socket.off('user-left');
+      }
 
       disconnectSocket();
     };
@@ -129,7 +141,7 @@ export default function ChatPage() {
     e.preventDefault();
     if (!newMessage.trim() || !isConnected) return;
 
-    const socket = getSocket();
+    const socket = getSocketSync();
     socket.emit('send-message', { content: newMessage.trim() });
     setNewMessage('');
   };

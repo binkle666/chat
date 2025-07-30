@@ -1,5 +1,5 @@
 import { io, Socket } from 'socket.io-client';
-import { getSocketConfig } from './config';
+import { getSocketConfig, config } from './config';
 
 let socket: Socket | null = null;
 
@@ -19,56 +19,53 @@ export interface ChatUser {
   socketId: string;
 }
 
-export function getSocket(): Socket {
+// 初始化 Socket.IO 服务器（Vercel 需要）
+async function initializeSocketServer(): Promise<void> {
+  if (config.useCustomServer) {
+    // 自定义服务器模式不需要初始化
+    return;
+  }
+
+  try {
+    const response = await fetch('/api/socket', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    const result = await response.json();
+    console.log('🔧 Socket.IO 服务器初始化结果:', result);
+  } catch (error) {
+    console.error('❌ 初始化 Socket.IO 服务器失败:', error);
+    // 即使初始化失败也继续尝试连接
+  }
+}
+
+export async function getSocket(): Promise<Socket> {
   if (!socket || socket.disconnected) {
     if (socket) {
       socket.removeAllListeners();
       socket.disconnect();
     }
 
-    // 简化连接逻辑 - 直接使用当前地址和 API 路径
-    const currentOrigin =
-      typeof window !== 'undefined'
-        ? window.location.origin
-        : 'http://localhost:3000';
-    const useCustomServer =
-      process.env.NEXT_PUBLIC_USE_CUSTOM_SERVER === 'true';
+    // 在 Vercel 环境下先初始化服务器
+    await initializeSocketServer();
+
+    // 使用统一的配置函数
+    const socketConfig = getSocketConfig();
 
     console.log('🔧 Socket 连接配置:', {
-      useCustomServer,
-      currentOrigin,
+      url: socketConfig.url,
+      options: socketConfig.options,
       env_USE_CUSTOM_SERVER: process.env.NEXT_PUBLIC_USE_CUSTOM_SERVER,
       env_SOCKET_URL: process.env.NEXT_PUBLIC_SOCKET_URL,
     });
 
-    if (useCustomServer) {
-      // 自定义服务器模式 (本地开发)
-      socket = io(currentOrigin, {
-        transports: ['websocket', 'polling'],
-        autoConnect: true,
-        forceNew: true,
-        timeout: 20000,
-        reconnection: true,
-        reconnectionDelay: 1000,
-        reconnectionAttempts: 5,
-      });
-      console.log('🚀 使用自定义服务器模式连接:', currentOrigin);
-    } else {
-      // API 路由模式 (Vercel 兼容)
-      socket = io(currentOrigin, {
-        path: '/api/socket',
-        transports: ['polling', 'websocket'],
-        autoConnect: true,
-        forceNew: true,
-        timeout: 30000,
-        reconnection: true,
-        reconnectionDelay: 2000,
-        reconnectionAttempts: 10,
-        upgrade: true,
-        closeOnBeforeunload: false,
-      });
-      console.log('🚀 使用 API 路由模式连接:', currentOrigin + '/api/socket');
-    }
+    // 使用配置创建 socket 连接
+    socket = io(socketConfig.url, socketConfig.options);
+
+    console.log('🚀 连接到:', socketConfig.url, '配置:', socketConfig.options);
 
     // 添加详细的连接日志
     socket.on('connect', () => {
@@ -97,6 +94,19 @@ export function getSocket(): Socket {
     socket.on('reconnect_error', (error) => {
       console.error('🔄❌ Socket 重连失败:', error);
     });
+  }
+  return socket;
+}
+
+// 同步版本，用于向后兼容
+export function getSocketSync(): Socket {
+  if (!socket || socket.disconnected) {
+    // 如果 socket 不存在，创建一个但不等待初始化
+    const socketConfig = getSocketConfig();
+    socket = io(socketConfig.url, socketConfig.options);
+
+    // 异步初始化服务器
+    initializeSocketServer().catch(console.error);
   }
   return socket;
 }

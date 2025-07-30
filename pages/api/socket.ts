@@ -50,15 +50,20 @@ export default function handler(
       path: '/api/socket',
       addTrailingSlash: false,
       cors: {
-        origin: '*',
-        methods: ['GET', 'POST'],
-        allowedHeaders: ['my-custom-header'],
-        credentials: false,
+        origin: [
+          'http://localhost:3000',
+          'https://chat-iota-blue.vercel.app',
+          /^https:\/\/.*\.vercel\.app$/,
+        ],
+        methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+        allowedHeaders: ['my-custom-header', 'content-type'],
+        credentials: true,
       },
       allowEIO3: true,
       transports: ['polling'], // Vercel 主要支持 polling
       pingTimeout: 60000,
       pingInterval: 25000,
+      connectTimeout: 45000,
     });
 
     // 存储 io 实例
