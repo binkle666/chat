@@ -1,0 +1,38 @@
+{
+  "name": "chat-room",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "NEXT_PUBLIC_USE_CUSTOM_SERVER=true NEXT_PUBLIC_SOCKET_URL=http://localhost:3000 node server.js",
+    "dev:vercel": "NEXT_PUBLIC_USE_CUSTOM_SERVER=false next dev",
+    "dev:auto": "node scripts/start.js",
+    "build": "next build",
+    "start": "NODE_ENV=production NEXT_PUBLIC_USE_CUSTOM_SERVER=true node server.js",
+    "start:vercel": "NEXT_PUBLIC_USE_CUSTOM_SERVER=false next start",
+    "start:auto": "NODE_ENV=production node scripts/start.js",
+    "lint": "next lint",
+    "check": "node scripts/check-deployment.js",
+    "postbuild": "echo 'Build completed for both local and Vercel environments'"
+  },
+  "dependencies": {
+    "next": "14.0.4",
+    "react": "^18",
+    "react-dom": "^18",
+    "socket.io": "^4.7.4",
+    "socket.io-client": "^4.7.4",
+    "@types/node": "^20",
+    "@types/react": "^18",
+    "@types/react-dom": "^18",
+    "typescript": "^5",
+    "tailwindcss": "^3.3.0",
+    "autoprefixer": "^10.0.1",
+    "postcss": "^8",
+    "lucide-react": "^0.294.0",
+    "clsx": "^2.0.0"
+  },
+  "devDependencies": {
+    "@types/socket.io": "^3.0.2",
+    "eslint": "^8",
+    "eslint-config-next": "14.0.4"
+  }
+}
