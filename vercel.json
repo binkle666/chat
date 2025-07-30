@@ -4,7 +4,7 @@
   "framework": "nextjs",
   "functions": {
     "pages/api/socket.ts": {
-      "maxDuration": 6000
+      "maxDuration": 900
     }
   },
   "env": {
