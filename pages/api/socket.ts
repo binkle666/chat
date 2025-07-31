@@ -76,7 +76,8 @@ export default function handler(
 
       // 用户加入聊天室
       socket.on('join-chat', (user: Omit<ChatUser, 'socketId'>) => {
-        console.log('用户加入聊天室 (API):', user);
+        console.log('用户加入聊天室 (API):', user, 'Socket ID:', socket.id);
+        console.log('当前连接用户数:', connectedUsers.size);
 
         // 检查最大用户数限制
         if (connectedUsers.size >= MAX_USERS) {
@@ -84,6 +85,7 @@ export default function handler(
             (u) => u.id === user.id,
           );
           if (!existingUser) {
+            console.log('聊天室已满，拒绝用户:', user.displayName);
             socket.emit('room-full', {
               message: '聊天室已满，最多只能有两个用户在线',
             });
@@ -108,6 +110,9 @@ export default function handler(
         connectedUsers.set(socket.id, { ...user, socketId: socket.id });
         socket.join('chat-room');
 
+        console.log('用户成功加入:', user.displayName, 'Socket ID:', socket.id);
+        console.log('更新后连接用户数:', connectedUsers.size);
+
         // 发送用户列表
         const userList = Array.from(connectedUsers.values());
         io.to('chat-room').emit('users-updated', userList);
@@ -131,7 +136,12 @@ export default function handler(
       socket.on('send-message', (data: { content: string }) => {
         const user = connectedUsers.get(socket.id);
         if (!user) {
-          console.log('未找到用户 (API):', socket.id);
+          console.log('未找到用户 (API):', socket.id, '- 用户可能需要重新加入');
+          // 通知客户端需要重新加入聊天室
+          socket.emit('need-rejoin', {
+            message: '会话已过期，请重新连接',
+            socketId: socket.id,
+          });
           return;
         }
 

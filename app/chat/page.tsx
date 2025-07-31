@@ -20,6 +20,7 @@ export default function ChatPage() {
   const [newMessage, setNewMessage] = useState('');
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState('');
+  const [isReconnecting, setIsReconnecting] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
 
@@ -51,6 +52,7 @@ export default function ChatPage() {
         socket.on('connect', () => {
           console.log('Socket.IO 连接成功:', socket.id);
           setIsConnected(true);
+          setIsReconnecting(false);
           setError('');
           // 加入聊天室
           socket.emit('join-chat', currentUser);
@@ -59,6 +61,7 @@ export default function ChatPage() {
         socket.on('disconnect', () => {
           console.log('Socket.IO 连接断开');
           setIsConnected(false);
+          setIsReconnecting(true);
         });
 
         socket.on('connect_error', (error: any) => {
@@ -112,6 +115,20 @@ export default function ChatPage() {
         socket.on('user-left', (data) => {
           // 可以显示系统消息
         });
+
+        // 处理需要重新加入的情况
+        socket.on('need-rejoin', (data) => {
+          console.log('收到重新加入请求:', data);
+          setIsReconnecting(true);
+          setError('正在重新连接...');
+          // 自动重新加入聊天室
+          socket.emit('join-chat', currentUser);
+          // 清除错误信息（几秒后）
+          setTimeout(() => {
+            setError('');
+            setIsReconnecting(false);
+          }, 2000);
+        });
       } catch (error) {
         console.error('初始化 Socket 失败:', error);
         setError('连接初始化失败');
@@ -133,6 +150,7 @@ export default function ChatPage() {
         socket.off('new-message');
         socket.off('user-joined');
         socket.off('user-left');
+        socket.off('need-rejoin'); // 清理重新加入事件监听器
       }
 
       disconnectSocket();
@@ -179,11 +197,19 @@ export default function ChatPage() {
             <div className="flex items-center space-x-2">
               <div
                 className={`w-2 h-2 rounded-full ${
-                  isConnected ? 'bg-green-500' : 'bg-red-500'
+                  isConnected
+                    ? 'bg-green-500'
+                    : isReconnecting
+                    ? 'bg-yellow-500 animate-pulse'
+                    : 'bg-red-500'
                 }`}
               ></div>
               <span className="text-sm text-gray-600">
-                {isConnected ? '已连接' : '未连接'}
+                {isConnected
+                  ? '已连接'
+                  : isReconnecting
+                  ? '重连中...'
+                  : '未连接'}
               </span>
             </div>
           </div>
@@ -320,7 +346,9 @@ export default function ChatPage() {
               </p>
             )}
             {!isConnected && (
-              <p className="text-xs text-red-500 mt-2">连接中...</p>
+              <p className="text-xs text-red-500 mt-2">
+                {isReconnecting ? '重新连接中，请稍候...' : '连接中...'}
+              </p>
             )}
           </div>
         </div>
