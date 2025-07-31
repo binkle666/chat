@@ -10,8 +10,9 @@ import {
   getSocketSync,
   disconnectSocket,
 } from '@/lib/socket';
+import { getHttpChatClient, disconnectHttpChat } from '@/lib/http-chat';
 import { getSocketConfig, config } from '@/lib/config';
-import { Send, LogOut, Users, AlertCircle } from 'lucide-react';
+import { Send, LogOut, Users, AlertCircle, Wifi, WifiOff } from 'lucide-react';
 
 export default function ChatPage() {
   const [user, setUser] = useState<any>(null);
@@ -21,8 +22,12 @@ export default function ChatPage() {
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState('');
   const [isReconnecting, setIsReconnecting] = useState(false);
+  const [connectionMode, setConnectionMode] = useState<'websocket' | 'http'>(
+    'websocket',
+  );
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
+  const socketFailCountRef = useRef(0);
 
   useEffect(() => {
     const currentUser = getCurrentUser();
@@ -32,128 +37,13 @@ export default function ChatPage() {
     }
     setUser(currentUser);
 
-    // 确保先清理之前的连接
-    disconnectSocket();
-
-    // 异步初始化 Socket.IO
-    const initializeSocket = async () => {
-      try {
-        const socket = await getSocket();
-
-        const socketConfig = getSocketConfig();
-        console.log('🔧 初始化 Socket.IO 连接...', {
-          url: socketConfig.url,
-          options: socketConfig.options,
-          useCustomServer: config.useCustomServer,
-          currentOrigin:
-            typeof window !== 'undefined' ? window.location.origin : 'N/A',
-        });
-
-        socket.on('connect', () => {
-          console.log('Socket.IO 连接成功:', socket.id);
-          setIsConnected(true);
-          setIsReconnecting(false);
-          setError('');
-          // 加入聊天室
-          socket.emit('join-chat', currentUser);
-        });
-
-        socket.on('disconnect', () => {
-          console.log('Socket.IO 连接断开');
-          setIsConnected(false);
-          setIsReconnecting(true);
-        });
-
-        socket.on('connect_error', (error: any) => {
-          console.error('Socket.IO 连接错误:', error);
-          const errorMessage = error?.message || error?.type || '连接错误';
-          const errorType = error?.type || 'unknown';
-          const errorDescription = error?.description || 'none';
-
-          console.error('错误类型:', errorType);
-          console.error('错误描述:', errorDescription);
-          setError(`连接失败: ${errorMessage}`);
-        });
-
-        socket.on('room-full', (data) => {
-          setError(data.message);
-        });
-
-        socket.on('users-updated', (users: ChatUser[]) => {
-          console.log('用户列表更新:', users);
-          setConnectedUsers(users);
-        });
-
-        socket.on('message-history', (history: Message[]) => {
-          setMessages(
-            history.map((msg) => ({
-              ...msg,
-              timestamp: new Date(msg.timestamp),
-            })),
-          );
-        });
-
-        socket.on('new-message', (message: Message) => {
-          console.log('接收到新消息:', message);
-          setMessages((prev) => {
-            const newMessages = [
-              ...prev,
-              {
-                ...message,
-                timestamp: new Date(message.timestamp),
-              },
-            ];
-            console.log('更新后的消息列表:', newMessages);
-            return newMessages;
-          });
-        });
-
-        socket.on('user-joined', (data) => {
-          // 可以显示系统消息
-        });
-
-        socket.on('user-left', (data) => {
-          // 可以显示系统消息
-        });
-
-        // 处理需要重新加入的情况
-        socket.on('need-rejoin', (data) => {
-          console.log('收到重新加入请求:', data);
-          setIsReconnecting(true);
-          setError('正在重新连接...');
-          // 自动重新加入聊天室
-          socket.emit('join-chat', currentUser);
-          // 清除错误信息（几秒后）
-          setTimeout(() => {
-            setError('');
-            setIsReconnecting(false);
-          }, 2000);
-        });
-      } catch (error) {
-        console.error('初始化 Socket 失败:', error);
-        setError('连接初始化失败');
-      }
-    };
-
-    initializeSocket();
+    // 先尝试 Socket.IO 连接
+    initializeSocketConnection(currentUser);
 
     return () => {
-      // 清理所有事件监听器
-      const socket = getSocketSync();
-      if (socket) {
-        socket.off('connect');
-        socket.off('disconnect');
-        socket.off('connect_error');
-        socket.off('room-full');
-        socket.off('users-updated');
-        socket.off('message-history');
-        socket.off('new-message');
-        socket.off('user-joined');
-        socket.off('user-left');
-        socket.off('need-rejoin'); // 清理重新加入事件监听器
-      }
-
+      // 清理连接
       disconnectSocket();
+      disconnectHttpChat();
     };
   }, [router]);
 
@@ -161,17 +51,193 @@ export default function ChatPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const handleSendMessage = (e: React.FormEvent) => {
+  const initializeSocketConnection = async (currentUser: any) => {
+    try {
+      setIsReconnecting(true);
+
+      // 确保先清理之前的连接
+      disconnectSocket();
+      disconnectHttpChat();
+
+      const socket = await getSocket();
+      const socketConfig = getSocketConfig();
+
+      console.log('🔧 初始化 Socket.IO 连接...', {
+        url: socketConfig.url,
+        options: socketConfig.options,
+        useCustomServer: config.useCustomServer,
+        currentOrigin:
+          typeof window !== 'undefined' ? window.location.origin : 'N/A',
+      });
+
+      // 设置连接超时
+      const connectionTimeout = setTimeout(() => {
+        console.warn('Socket.IO 连接超时，切换到 HTTP 模式');
+        socketFailCountRef.current++;
+        if (socketFailCountRef.current >= 2) {
+          fallbackToHttpMode(currentUser);
+        }
+      }, 10000);
+
+      socket.on('connect', () => {
+        clearTimeout(connectionTimeout);
+        console.log('Socket.IO 连接成功:', socket.id);
+        setIsConnected(true);
+        setIsReconnecting(false);
+        setError('');
+        setConnectionMode('websocket');
+        socketFailCountRef.current = 0;
+        socket.emit('join-chat', currentUser);
+      });
+
+      socket.on('disconnect', () => {
+        console.log('Socket.IO 连接断开');
+        setIsConnected(false);
+        setIsReconnecting(true);
+      });
+
+      socket.on('connect_error', (error: any) => {
+        clearTimeout(connectionTimeout);
+        console.error('Socket.IO 连接错误:', error);
+        socketFailCountRef.current++;
+
+        const errorMessage = error?.message || error?.type || '连接错误';
+        console.error('错误类型:', error?.type);
+        setError(`Socket.IO 连接失败: ${errorMessage}`);
+
+        // 如果连续失败2次，切换到 HTTP 模式
+        if (socketFailCountRef.current >= 2) {
+          console.log('Socket.IO 连续失败，切换到 HTTP 轮询模式');
+          fallbackToHttpMode(currentUser);
+        }
+      });
+
+      socket.on('room-full', (data) => {
+        setError(data.message);
+      });
+
+      socket.on('users-updated', (users: ChatUser[]) => {
+        console.log('用户列表更新:', users);
+        setConnectedUsers(users);
+      });
+
+      socket.on('message-history', (history: Message[]) => {
+        setMessages(
+          history.map((msg) => ({
+            ...msg,
+            timestamp: new Date(msg.timestamp),
+          })),
+        );
+      });
+
+      socket.on('new-message', (message: Message) => {
+        console.log('接收到新消息:', message);
+        setMessages((prev) => {
+          const newMessages = [
+            ...prev,
+            {
+              ...message,
+              timestamp: new Date(message.timestamp),
+            },
+          ];
+          console.log('更新后的消息列表:', newMessages);
+          return newMessages;
+        });
+      });
+
+      socket.on('need-rejoin', (data) => {
+        console.log('收到重新加入请求:', data);
+        setIsReconnecting(true);
+        setError('正在重新连接...');
+        socket.emit('join-chat', currentUser);
+        setTimeout(() => {
+          setError('');
+          setIsReconnecting(false);
+        }, 2000);
+      });
+    } catch (error) {
+      console.error('初始化 Socket 失败:', error);
+      socketFailCountRef.current++;
+      if (socketFailCountRef.current >= 2) {
+        fallbackToHttpMode(currentUser);
+      } else {
+        setError('Socket.IO 连接初始化失败');
+      }
+    }
+  };
+
+  const fallbackToHttpMode = async (currentUser: any) => {
+    try {
+      console.log('🔄 切换到 HTTP 轮询模式...');
+      setConnectionMode('http');
+      setError('使用 HTTP 轮询模式连接...');
+
+      // 断开 Socket.IO
+      disconnectSocket();
+
+      // 使用 HTTP 客户端
+      const httpClient = getHttpChatClient();
+
+      httpClient.on('connected', () => {
+        console.log('HTTP 连接成功');
+        setIsConnected(true);
+        setIsReconnecting(false);
+        setError('');
+      });
+
+      httpClient.on('new-message', (message: Message) => {
+        console.log('HTTP 接收到新消息:', message);
+        setMessages((prev) => [...prev, message]);
+      });
+
+      httpClient.on('users-updated', (users: ChatUser[]) => {
+        console.log('HTTP 用户列表更新:', users);
+        setConnectedUsers(users);
+      });
+
+      httpClient.on('connect_error', (error: any) => {
+        console.error('HTTP 连接错误:', error);
+        setError('HTTP 连接失败');
+        setIsConnected(false);
+      });
+
+      httpClient.on('disconnected', () => {
+        setIsConnected(false);
+      });
+
+      // 加入聊天室
+      await httpClient.joinChat(currentUser);
+    } catch (error) {
+      console.error('HTTP 模式初始化失败:', error);
+      setError('连接失败，请刷新页面重试');
+    }
+  };
+
+  const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newMessage.trim() || !isConnected) return;
 
-    const socket = getSocketSync();
-    socket.emit('send-message', { content: newMessage.trim() });
-    setNewMessage('');
+    try {
+      if (connectionMode === 'websocket') {
+        const socket = getSocketSync();
+        socket.emit('send-message', { content: newMessage.trim() });
+      } else {
+        const httpClient = getHttpChatClient();
+        await httpClient.sendMessage(newMessage.trim());
+      }
+      setNewMessage('');
+    } catch (error) {
+      console.error('发送消息失败:', error);
+      setError('发送消息失败');
+    }
   };
 
   const handleLogout = () => {
-    disconnectSocket();
+    if (connectionMode === 'websocket') {
+      disconnectSocket();
+    } else {
+      disconnectHttpChat();
+    }
     logout();
     router.push('/login');
   };
@@ -206,11 +272,18 @@ export default function ChatPage() {
               ></div>
               <span className="text-sm text-gray-600">
                 {isConnected
-                  ? '已连接'
+                  ? `已连接 (${
+                      connectionMode === 'websocket' ? 'WebSocket' : 'HTTP'
+                    })`
                   : isReconnecting
                   ? '重连中...'
                   : '未连接'}
               </span>
+              {connectionMode === 'websocket' ? (
+                <Wifi className="w-4 h-4 text-green-500" />
+              ) : (
+                <WifiOff className="w-4 h-4 text-orange-500" />
+              )}
             </div>
           </div>
 
@@ -241,6 +314,18 @@ export default function ChatPage() {
           <div className="flex items-center">
             <AlertCircle className="w-5 h-5 text-red-400 mr-2" />
             <span className="text-red-700">{error}</span>
+          </div>
+        </div>
+      )}
+
+      {/* 连接模式提示 */}
+      {connectionMode === 'http' && isConnected && (
+        <div className="bg-orange-50 border-l-4 border-orange-400 p-2">
+          <div className="flex items-center text-sm">
+            <WifiOff className="w-4 h-4 text-orange-500 mr-2" />
+            <span className="text-orange-700">
+              当前使用 HTTP 轮询模式（备用连接）
+            </span>
           </div>
         </div>
       )}

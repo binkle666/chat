@@ -47,7 +47,7 @@ export default function handler(
 
   try {
     const io = new Server(res.socket.server, {
-      path: '/api/socket', // 明确设置路径
+      path: '/socket.io/', // 使用标准路径
       addTrailingSlash: false,
       cors: {
         origin: [
@@ -60,15 +60,19 @@ export default function handler(
         credentials: true,
       },
       allowEIO3: true,
-      transports: ['polling'], // Vercel 主要支持 polling
-      pingTimeout: 60000,
-      pingInterval: 25000,
-      connectTimeout: 45000,
+      transports: ['polling'], // Vercel 只支持 polling
+      pingTimeout: 30000, // 减少超时时间
+      pingInterval: 10000, // 减少心跳间隔
+      connectTimeout: 20000, // 减少连接超时
+      // 优化 Vercel 部署
+      upgradeTimeout: 10000,
+      httpCompression: false,
+      wsEngine: undefined, // 禁用 WebSocket
     });
 
     // 存储 io 实例
     res.socket.server.io = io;
-    console.log('Socket.IO 服务器初始化成功，路径: /api/socket');
+    console.log('Socket.IO 服务器初始化成功，路径: /socket.io/');
 
     // 设置连接处理
     io.on('connection', (socket) => {
@@ -206,8 +210,12 @@ export default function handler(
   }
 }
 
+// 配置 API 路由
 export const config = {
   api: {
     bodyParser: false,
+    responseLimit: false,
+    externalResolver: true,
   },
+  maxDuration: 300, // 5分钟超时
 };

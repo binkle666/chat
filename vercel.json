@@ -4,7 +4,9 @@
   "framework": "nextjs",
   "functions": {
     "pages/api/socket.ts": {
-      "maxDuration": 300
+      "maxDuration": 300,
+      "runtime": "nodejs20.x",
+      "memory": 512
     }
   },
   "env": {
@@ -16,6 +18,12 @@
     }
   },
   "installCommand": "npm ci",
+  "rewrites": [
+    {
+      "source": "/socket.io/(.*)",
+      "destination": "/api/socket"
+    }
+  ],
   "headers": [
     {
       "source": "/api/socket",
@@ -31,6 +39,10 @@
         {
           "key": "Access-Control-Allow-Headers",
           "value": "X-Requested-With,Content-Type,Authorization"
+        },
+        {
+          "key": "Cache-Control",
+          "value": "no-cache, no-store, must-revalidate"
         }
       ]
     }

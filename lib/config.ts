@@ -27,7 +27,7 @@ export const config = {
   })(),
 
   // Socket.IO 路径
-  socketPath: '/api/socket',
+  socketPath: '/socket.io/',
 
   // 是否为生产环境
   isProduction: process.env.NODE_ENV === 'production',
@@ -62,20 +62,23 @@ export function getSocketConfig() {
       },
     };
   } else {
-    // 生产环境（Vercel）：使用 API 路由
+    // 生产环境（Vercel）：使用标准 Socket.IO 路径，通过重写规则转到 API 路由
     return {
       url: config.socketUrl,
       options: {
-        path: '/api/socket', // 明确设置路径，直接连接到 API 路由
+        // 使用标准路径，让 Vercel 重写规则处理
         transports: ['polling'], // Vercel 只支持 polling
         autoConnect: true,
         forceNew: true,
-        timeout: 45000,
+        timeout: 20000, // 减少超时时间
         reconnection: true,
         reconnectionDelay: 2000,
-        reconnectionAttempts: 10,
+        reconnectionAttempts: 5,
         upgrade: false, // 禁用升级到 WebSocket
         closeOnBeforeunload: false,
+        // 针对 Vercel 的优化
+        rememberUpgrade: false,
+        timestampRequests: true,
       },
     };
   }
