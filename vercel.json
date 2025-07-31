@@ -2,12 +2,6 @@
   "buildCommand": "npm run build",
   "outputDirectory": ".next",
   "framework": "nextjs",
-  "functions": {
-    "pages/api/socket.ts": {
-      "maxDuration": 300,
-      "memory": 512
-    }
-  },
   "env": {
     "NEXT_PUBLIC_USE_CUSTOM_SERVER": "false"
   },
@@ -17,15 +11,9 @@
     }
   },
   "installCommand": "npm ci",
-  "rewrites": [
-    {
-      "source": "/socket.io/(.*)",
-      "destination": "/api/socket"
-    }
-  ],
   "headers": [
     {
-      "source": "/api/socket",
+      "source": "/api/chat",
       "headers": [
         {
           "key": "Access-Control-Allow-Origin",

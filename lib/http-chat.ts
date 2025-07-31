@@ -82,7 +82,6 @@ class HttpChatClient {
 
       return data;
     } catch (error) {
-      console.error('加入聊天室失败:', error);
       this.emit('connect_error', error);
       throw error;
     }
@@ -113,7 +112,6 @@ class HttpChatClient {
 
       return data;
     } catch (error) {
-      console.error('发送消息失败:', error);
       throw error;
     }
   }
@@ -126,7 +124,7 @@ class HttpChatClient {
         method: 'DELETE',
       });
     } catch (error) {
-      console.error('离开聊天室失败:', error);
+      // 忽略离开聊天室的错误
     } finally {
       this.stopPolling();
       this.userId = null;
@@ -184,12 +182,11 @@ class HttpChatClient {
       // 更新用户列表
       this.emit('users-updated', data.users || []);
     } catch (error) {
-      console.error('轮询失败:', error);
       this.emit('connect_error', error);
     }
   }
 
-  // 兼容 Socket.IO 的接口
+  // HTTP聊天连接状态
   get connected() {
     return this.userId !== null;
   }
