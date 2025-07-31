@@ -16,16 +16,6 @@
     }
   },
   "installCommand": "npm ci",
-  "rewrites": [
-    {
-      "source": "/socket.io/(.*)",
-      "destination": "/api/socket"
-    },
-    {
-      "source": "/socket.io",
-      "destination": "/api/socket"
-    }
-  ],
   "headers": [
     {
       "source": "/api/socket",

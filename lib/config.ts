@@ -64,7 +64,7 @@ export function getSocketConfig() {
     return {
       url: config.socketUrl,
       options: {
-        // 不设置 path，使用默认的 /socket.io/，让 vercel.json 重写规则处理
+        path: '/api/socket', // 明确设置路径，直接连接到 API 路由
         transports: ['polling'], // Vercel 只支持 polling
         autoConnect: true,
         forceNew: true,

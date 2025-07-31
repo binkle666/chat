@@ -47,7 +47,7 @@ export default function handler(
 
   try {
     const io = new Server(res.socket.server, {
-      // 不设置自定义 path，使用默认配置
+      path: '/api/socket', // 明确设置路径
       addTrailingSlash: false,
       cors: {
         origin: [
@@ -68,7 +68,7 @@ export default function handler(
 
     // 存储 io 实例
     res.socket.server.io = io;
-    console.log('Socket.IO 服务器初始化成功');
+    console.log('Socket.IO 服务器初始化成功，路径: /api/socket');
 
     // 设置连接处理
     io.on('connection', (socket) => {
