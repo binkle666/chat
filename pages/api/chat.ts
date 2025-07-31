@@ -74,7 +74,7 @@ function handleGetMessages(req: NextApiRequest, res: NextApiResponse) {
 
   // 清理离线用户（超过30秒未活动）
   const now = new Date();
-  for (const [id, user] of connectedUsers.entries()) {
+  for (const [id, user] of Array.from(connectedUsers.entries())) {
     if (now.getTime() - user.lastSeen.getTime() > 30000) {
       connectedUsers.delete(id);
     }
