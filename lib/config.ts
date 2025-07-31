@@ -5,7 +5,7 @@ export const config = {
 
   // Socket.IO 连接地址
   socketUrl: (() => {
-    // 优先使用环境变量
+    // 如果明确设置了环境变量，使用环境变量
     if (process.env.NEXT_PUBLIC_SOCKET_URL) {
       console.log(
         '🔧 使用环境变量 SOCKET_URL:',
@@ -14,15 +14,16 @@ export const config = {
       return process.env.NEXT_PUBLIC_SOCKET_URL;
     }
 
-    // 否则使用当前页面的 origin
+    // 在浏览器环境中使用当前页面的 origin
     if (typeof window !== 'undefined') {
       console.log('🔧 使用浏览器 origin:', window.location.origin);
       return window.location.origin;
     }
 
-    // 最后的后备选项
-    console.log('🔧 使用默认 localhost');
-    return 'http://localhost:3000';
+    // 服务器端渲染时的默认值
+    const defaultUrl = 'http://localhost:3000';
+    console.log('🔧 使用默认地址:', defaultUrl);
+    return defaultUrl;
   })(),
 
   // Socket.IO 路径
@@ -41,6 +42,7 @@ export function getSocketConfig() {
     NEXT_PUBLIC_USE_CUSTOM_SERVER: process.env.NEXT_PUBLIC_USE_CUSTOM_SERVER,
     NEXT_PUBLIC_SOCKET_URL: process.env.NEXT_PUBLIC_SOCKET_URL,
     NODE_ENV: process.env.NODE_ENV,
+    VERCEL: process.env.VERCEL,
     useCustomServer: config.useCustomServer,
     socketUrl: config.socketUrl,
   });
